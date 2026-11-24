@@ -1,0 +1,10 @@
+# Lint: python -m ruff check .   (runtests.ps1 runs it before the tests)
+# Errors only: names that are undefined, unused or redefined, and syntax.
+extend-exclude = ["dist", ".venv"]
+
+[lint]
+select = ["F", "E9"]
+
+[lint.per-file-ignores]
+# pytest fixtures imported from another test module look redefined
+"tests/*" = ["F811"]

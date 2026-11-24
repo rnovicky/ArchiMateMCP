@@ -1,0 +1,29 @@
+# Environment / secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Test / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# The record of changes of the write tools (CHANGE_LOG)
+changes.log
+
+# Images of diagrams (diagram_image, IMAGE_DIR)
+images/
+
+# Install packages produced by createinstallpackage.ps1
+dist/
