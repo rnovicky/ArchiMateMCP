@@ -96,6 +96,12 @@ class BrowserLinks:
             parts.append(f"d={quote(diagram, safe='-*@:~.')}")
         return self.base + "#" + "&".join(parts)
 
+    def recipe_url(self, model_ref: str, recipe: str) -> str | None:
+        """1.15.0: the link of a recipe (the parameters of a Browser link as the API stores them, already encoded)."""
+        if not self.base:
+            return None
+        return f"{self.base}#model={quote(model_ref, safe='-*@:~.')}&{recipe}"
+
     # ---------------------------------------------------------------- diagram definitions (encodeDef)
 
     @staticmethod
@@ -113,11 +119,20 @@ class BrowserLinks:
         return "ex~~" + ".".join(token(e) for e in elements) + tail
 
     @staticmethod
-    def neighbourhood(seeds: list[dict], depth: int, direction: str) -> str | None:
+    def neighbourhood(seeds: list[dict], depth: int, direction: str,
+                      incoming_types: list[str] | None = None, outgoing_types: list[str] | None = None) -> str | None:
+        """nb~…; 1.15.0 (Browser 2.33.0): with the relationship types followed per direction, ~<b|o|i>~<in>~<out>."""
         if depth > NEIGHBOURHOOD_MAX_DEPTH:
             return None
-        code = {"out": "~o", "in": "~i"}.get(direction, "")
-        return f"nb~{depth}~" + ".".join(token(e) for e in seeds) + code
+        code = {"out": "o", "in": "i"}.get(direction, "")
+        head = f"nb~{depth}~" + ".".join(token(e) for e in seeds)
+        inc = incoming_types if direction != "out" else None
+        out = outgoing_types if direction != "in" else None
+        if inc is not None or out is not None:
+            if inc == [] or out == []:
+                return None  # a direction followed by no type: the Browser says so with the direction itself
+            return f"{head}~{code or 'b'}~{'.'.join(inc or [])}~{'.'.join(out or [])}"
+        return head + (f"~{code}" if code else "")
 
     @staticmethod
     def impact(starts: list[dict], direction: str, depth: int, types: list[str] | None) -> str:

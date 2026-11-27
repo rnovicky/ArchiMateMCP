@@ -10,7 +10,7 @@ behind a REST API) and the **ArchiMate Browser** (a web page that shows
 them). Like the browser it is only a client of the API: it uses nothing but
 `/api/v2`, with an API key of its own.
 
-> **Version 1.14.1.** The tools read models, elements, relationships,
+> **Version 1.15.0.** The tools read models, elements, relationships,
 > views and folders, answer how elements depend on each other, and give the
 > API's reports; answers link to the ArchiMate Browser, `propose_view`
 > hands a new view to it, and `diagram_image` saves a diagram as a PNG or
@@ -195,10 +195,11 @@ tools are described in [Writing](#writing).
 | `browse_folders` | The folder tree, one level at a time: sub-folders with their counts, and what is filed directly in a folder |
 | `impact_analysis` | What a change of elements affects, or what they depend on, level by level, each element with the relationship it is reached over. Follows the API's propagation rules (`archimate://metamodel`) |
 | `find_paths` | How two elements are connected: the shortest paths, each as a readable chain (`Web Shop -Flow-> Kafka -Flow-> ERP`) and as steps |
-| `neighbourhood` | The elements within some relationships of given elements, with their distance, and the relationships among them |
+| `neighbourhood` | The elements within some relationships of given elements, with their distance, and the relationships among them. `incoming_types` / `outgoing_types` (1.15.0, API 3.24.0) follow only those relationship types in that direction, at every step, e.g. every incoming relationship but outgoing only Serving and Realization |
 | `subgraph` | A set of elements and the relationships among them: given elements, a folder's, a view's, every element of a type or layer |
 | `browser_link` | A link that opens a diagram (of elements, a view, a folder) in the ArchiMate Browser, optionally with an element selected |
 | `diagram_image` | A diagram saved as a PNG or SVG file, drawn exactly as the ArchiMate Browser draws it: a view, chosen elements, or the diagram of a `browserLink` from another answer. Answers the files' paths and sizes; see [Images of diagrams](#images-of-diagrams) (1.12.0, MCP-35) |
+| `check_recipe_script` | What a recipe script would make, without changing anything: every error with its line and a suggestion, or each recipe (new, changed, unchanged, obsolete) with a `browserLink`. Its description holds the language in short; the whole of it is the API's [RECIPE_SCRIPTS.md](../ArchiMateAPI/RECIPE_SCRIPTS.md) (1.15.0, API 3.24.0) |
 | `model_quality` | What is probably unfinished or wrong: elements in no view or without relationships, unfiled items, duplicate names within a type, empty views, empty labels, relationships ArchiMate does not allow between their ends |
 | `relationship_matrix` | Which elements of one set connect to which of another, directly or along a path pattern (e.g. Realization, then Serving); each pair with its count and its paths as readable chains |
 | `landscape` | A landscape map as a tree: the elements below root elements along nesting relationships (e.g. capabilities with the applications that realize them), with property values and a legend |
@@ -251,6 +252,7 @@ reader key it says so at start and offers none of them (decision D11).
 | `delete_folder` | Deletes an empty folder; one that is not empty only with `move_contents_to`, where its sub-folders and items go. Nothing but the folder is deleted |
 | `update_view` | Renames a view or changes its documentation: a created view or recipe (1.9.0), or a view of the model's source on a model mastered here (1.14.0, API 3.23.0) |
 | `delete_view` | Deletes a view, after asking: a created view or recipe (1.9.0), or a view of the model's source on a model mastered here (1.14.0) |
+| `run_recipe_script` | Makes and updates the recipes of a recipe script, in one change, after `check_recipe_script` and the user's yes; `delete_obsolete` also deletes those the script no longer makes. Running it again updates its own recipes. A script with errors changes nothing and is answered like a check (1.15.0, API 3.24.0) |
 | `apply_changes` | Many of the changes above in one call and **one transaction**: all of them, or none, folders included (1.6.0). Later changes name items and folders created by earlier ones as `@ref` |
 | `create_model` | A new, empty model, by default with Archi's top-level folders. Only with a key that may create models (role `admin`) |
 | `update_model` | Changes the model's name, documentation or version label. Only with a key that may change models (role `admin`) |
@@ -407,7 +409,8 @@ app/
   lookup.py        what a tool is told to look at: by id, XMI identifier, name or path
   links.py         links to the ArchiMate Browser (its link format)
   tools/           the tools, one module per subject: models, search, concepts, views, folders, graph,
-                   reports, metamodel (allowed_relationships), history, images (diagram_image), write
+                   reports, metamodel (allowed_relationships), history, images (diagram_image), scripts
+                   (check_recipe_script, run_recipe_script), write
   render.py        images of diagrams: its own Browser server, Chrome or Edge without a window (1.12.0)
   resources.py     the archimate:// resources
   watch.py         subscriptions to them, told from the API's change events (1.11.0)

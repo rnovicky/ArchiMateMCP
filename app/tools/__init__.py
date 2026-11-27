@@ -110,9 +110,10 @@ def compact(tool):
 
 
 def register_all(server: MCPServer, ctx: Context) -> None:
-    from app.tools import concepts, folders, graph, history, images, metamodel, models, reports, search, views, write
+    from app.tools import (concepts, folders, graph, history, images, metamodel, models, reports, scripts, search, views,
+                           write)
 
-    for module in (models, search, concepts, views, folders, graph, reports, metamodel, images):
+    for module in (models, search, concepts, views, folders, graph, reports, metamodel, images, scripts):
         module.register(server, ctx)
     if ctx.permissions is None or "write" in ctx.permissions:
         history.register(server, ctx)  # the API gives its record of changes to editors (1.7.0)

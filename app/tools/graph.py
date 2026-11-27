@@ -162,17 +162,31 @@ def register(server: MCPServer, ctx: Context) -> None:
         depth: Annotated[int, Field(description="How many relationships away (0 to 5).", ge=0, le=5)] = 1,
         direction: Annotated[Literal["both", "out", "in"], Field(
             description="out: follow relationships from source to target; in: the other way; both.")] = "both",
+        incoming_types: Annotated[list[str] | None, Field(description=(
+            "Only these relationship types are followed against their direction (target to source), at every "
+            "step; needs direction both or in. Default: every type. API 3.24.0."))] = None,
+        outgoing_types: Annotated[list[str] | None, Field(description=(
+            "Only these relationship types are followed along their direction (source to target), at every step; "
+            "needs direction both or out. Default: every type. E.g. every incoming relationship but outgoing only "
+            "Serving and Realization. API 3.24.0."))] = None,
         relationship_types: RelationshipTypes = None,
         element_types: ElementTypes = None,
         layers: Layers = None,
         limit: Limit = None,
     ) -> dict[str, Any]:
         """The elements around some elements, each with its distance, and the relationships among them.
-        Junctions are passed through. Default: every relationship type.
+        Junctions are passed through. Default: every relationship type. incoming_types and outgoing_types narrow
+        which relationships are followed in each direction (not which are returned among the elements reached);
+        relationship_types narrows both.
         """
         m = await lookup.model(model)
         seeds = await elements_of(m["id"], elements)
+        if incoming_types is not None and direction == "out":
+            raise ToolError("incoming_types needs direction both or in.")
+        if outgoing_types is not None and direction == "in":
+            raise ToolError("outgoing_types needs direction both or out.")
         body = {"seeds": [e["id"] for e in seeds], "depth": depth, "direction": direction,
+                "incomingTypes": incoming_types, "outgoingTypes": outgoing_types,
                 "relationshipTypes": relationship_types, "elementTypes": element_types, "layers": layers}
         result = await api.post(f"/models/{m['id']}/graph/neighbourhood", {k: v for k, v in body.items() if v is not None})
         n = ctx.limit(limit)
@@ -187,7 +201,8 @@ def register(server: MCPServer, ctx: Context) -> None:
         }
         if result.get("truncated"):
             answer["cutByServer"] = True
-        diagram = ctx.links.neighbourhood(seeds, depth, direction) if not (relationship_types or element_types or layers) else None
+        diagram = (ctx.links.neighbourhood(seeds, depth, direction, incoming_types, outgoing_types)
+                   if not (relationship_types or element_types or layers) else None)
         answer.update(await ctx.browser_link(m, diagram))
         return answer
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.15.0 (2026-11-27)
+
+For the ArchiMate API 3.24.0; the rest works with the API as before.
+
+* **Recipe scripts:** a recipe script makes the recipes of many diagrams at
+  once, e.g. *one for each business service with Status XY*. The language is
+  described in the API's RECIPE_SCRIPTS.md.
+  * **`check_recipe_script`** is always offered and reads only. It says what a
+    script would make, without changing anything. Errors come back with their
+    line and a suggestion. Otherwise each recipe comes back with its status
+    (new, changed and what, unchanged, obsolete), the element it was made for,
+    its recipe and, with `BROWSER_URL`, a `browserLink` (which
+    `diagram_image` can draw). The tool's description holds the language in
+    short, so that the assistant can write scripts.
+  * **`run_recipe_script`** is offered when writing is on. It makes and
+    updates the recipes; `delete_obsolete` also deletes the ones the script no
+    longer makes. A script with errors changes nothing and is answered like a
+    check. Every run that changes something is recorded in the change log.
+  * The server's instructions say to check first and to show the user the
+    result before running.
+* **`neighbourhood`:** `incoming_types` and `outgoing_types` follow only
+  those relationship types in that direction, at every step, e.g. every
+  incoming relationship but outgoing only Serving and Realization. Its
+  `browserLink` keeps them (Browser 2.33.0).
+
 ## 1.14.1 (2026-11-27)
 
 No change to the server itself.

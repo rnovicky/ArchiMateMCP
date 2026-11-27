@@ -46,6 +46,12 @@ the diagram in the Browser and save it there.
 For reports and documents, diagram_image saves a diagram as a PNG or SVG
 file, drawn as the Browser draws it: a view, some elements, or the diagram of
 a "browserLink" from another answer. Put the file it names into the document.
+
+Recipes are stored diagrams that the Browser draws afresh whenever they are
+opened. To make many at once ("a diagram for each business service with
+Status XY"), write a recipe script: check_recipe_script says what it would
+make, or its errors by line, without changing anything. Fix the errors and
+check again; show the user the result before running it.
 """
 
 READ_ONLY_NOTE = """
@@ -79,6 +85,8 @@ Only a model mastered here can be changed: list_models and model_overview say
 "master": "api". A model with "master": "file" is linked to a file and updated
 from it; its changes are made in Archi, so do not try to write to it (its
 created views are the exception: update_view and delete_view work there).
+run_recipe_script makes and updates the recipes of a script you checked with
+check_recipe_script and the user agreed to; it works on a linked model too.
 """
 
 
