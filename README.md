@@ -10,7 +10,7 @@ behind a REST API) and the **ArchiMate Browser** (a web page that shows
 them). Like the browser it is only a client of the API: it uses nothing but
 `/api/v2`, with an API key of its own.
 
-> **Version 1.14.0.** The tools read models, elements, relationships,
+> **Version 1.14.1.** The tools read models, elements, relationships,
 > views and folders, answer how elements depend on each other, and give the
 > API's reports; answers link to the ArchiMate Browser, `propose_view`
 > hands a new view to it, and `diagram_image` saves a diagram as a PNG or
@@ -467,6 +467,13 @@ holds `app/`, `run_server.py`, `requirements.txt`, `.env.example`,
 `archimatemcp.bat`, `deploy.ps1`, `README.md`, `CHANGELOG.md`,
 `ACCESS_RIGHTS.md` and `REAL_USE_TESTS.md`, and `MANIFEST.txt`, the list of
 its files for `deploy.ps1`.
+
+The Markdown files in the package (README, CHANGELOG, ...) link to files the
+package leaves out, such as the working documents and the other projects'
+files. The script rewrites those links to the same file in the project's
+public repository on GitHub (`https://github.com/rnovicky/<project>`), so
+that they work in an installation; links to files in the package stay
+relative.
 
 | Parameter | Default | Purpose |
 | --- | --- | --- |

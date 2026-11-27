@@ -114,6 +114,48 @@ foreach ($file in $IncludeFiles) {
     [System.IO.File]::Copy($src, (Long (Join-Path $PackagePath $file)), $true)
 }
 
+# Links in the package's Markdown files (README.md, CHANGELOG.md, docs...) to files the package leaves
+# out (working documents such as PLAN.md, design notes, the sibling projects' files) would lead nowhere in
+# an installation: they are rewritten to the same file in the project's public repository on GitHub. Links
+# to files in the package stay as they are.
+$GitHubBase = "https://github.com/rnovicky"
+$Siblings   = @("ArchiMateAPI", "ArchiMateBrowser", "ArchiMateMCP")
+$ThisRepo   = Split-Path $ProjectRoot -Leaf
+if ($Siblings -notcontains $ThisRepo) { $ThisRepo = "ArchiMateMCP" }
+$linkPattern = '\]\(\s*(<?)([^)\s>#]*)(#[^)\s>]*)?(>?)(\s+"[^"]*")?\s*\)'
+$rewritten = 0
+foreach ($md in Get-ChildItem -LiteralPath $PackagePath -Recurse -File -Filter "*.md") {
+    $text = [System.IO.File]::ReadAllText((Long $md.FullName), [System.Text.Encoding]::UTF8)
+    $folder = Split-Path $md.FullName -Parent
+    $relFolder = $folder.Substring($PackagePath.Length).TrimStart('\').Replace('\', '/')
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] {
+        param($m)
+        $target = $m.Groups[2].Value
+        if (-not $target -or $target -match '^[a-zA-Z][a-zA-Z0-9+.-]*:') { return $m.Value }
+        if ([System.IO.File]::Exists((Long (Join-Path $folder $target))) -or
+            [System.IO.Directory]::Exists((Long (Join-Path $folder $target)))) { return $m.Value }
+        # the path from the project's root, without . and ..
+        $parts = New-Object System.Collections.Generic.List[string]
+        foreach ($p in (($relFolder + '/' + $target) -split '/')) {
+            if ($p -eq '' -or $p -eq '.') { continue }
+            if ($p -eq '..') { if ($parts.Count) { $parts.RemoveAt($parts.Count - 1) } else { $parts.Add('..') }; continue }
+            $parts.Add($p)
+        }
+        $repo = $ThisRepo
+        if ($parts.Count -ge 2 -and $parts[0] -eq '..' -and $Siblings -contains $parts[1]) {
+            $repo = $parts[1]; $parts.RemoveRange(0, 2)
+        } elseif ($parts.Count -and $parts[0] -eq '..') { return $m.Value }  # outside the projects: left alone
+        $script:rewritten++
+        $kind = if ($target.EndsWith('/')) { 'tree' } else { 'blob' }
+        return "](" + "$GitHubBase/$repo/$kind/main/" + ($parts -join '/') + $m.Groups[3].Value + $m.Groups[5].Value + ")"
+    }
+    $new = [regex]::Replace($text, $linkPattern, $evaluator)
+    if ($new -ne $text) {
+        [System.IO.File]::WriteAllText((Long $md.FullName), $new, (New-Object System.Text.UTF8Encoding($false)))
+    }
+}
+if ($rewritten) { Write-Host "Links to files not in the package now point to GitHub: $rewritten" }
+
 # MANIFEST.txt: every file of the package, so that deploy.ps1 knows which files
 # of an installation came with it (and may be replaced or deleted by an update).
 $files = Get-ChildItem -LiteralPath $PackagePath -Recurse -File -Force |

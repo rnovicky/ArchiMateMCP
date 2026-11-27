@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.14.1 (2026-11-27)
+
+No change to the server itself.
+
+* **Install package:** links in its Markdown files to files it leaves out
+  (`PLAN.md`, `IMPROVEMENTS.md`, the API's `ACCESS_RIGHTS.md` and
+  `EPIC_MULTIUSER.md`) now point to the same file on GitHub
+  (`createinstallpackage.ps1`).
+
 ## 1.14.0 (2026-11-20)
 
 * **`update_view` and `delete_view`** also rename and delete views of the
