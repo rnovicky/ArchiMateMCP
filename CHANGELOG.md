@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.16.0 (2026-11-27)
+
+For the ArchiMate API 3.25.0; the rest works with the API as before.
+
+* **`get_view` on a recipe** also gives it as the script of one diagram
+  (`script`), what a script cannot say (`scriptGaps`) and, for a recipe made
+  by a recipe script, that script and the line of the diagram (`madeBy`).
+* **`check_recipe_script` with `view`** checks the changed script of one
+  recipe and says what saving it would change (name, documentation, recipe).
+* **`save_recipe_script`** (writing on) saves it into the recipe, which keeps
+  its id and links. A recipe made by a recipe script is refused, since its
+  next run would set it back, unless `detach` (ask the user first). Every
+  save that changes something is recorded in the change log.
+* **`recipe_scripts`** lists the scripts kept with a model (every run keeps
+  its text since API 3.25.0) and gives the text of one, so that Claude can
+  change a script written elsewhere and run it again. `run_recipe_script`
+  answers its `storedScriptId`.
+* The server's instructions and the language in short in
+  `check_recipe_script` mention the script of one recipe.
+
 ## 1.15.0 (2026-11-27)
 
 For the ArchiMate API 3.24.0; the rest works with the API as before.

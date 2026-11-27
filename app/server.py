@@ -51,7 +51,9 @@ Recipes are stored diagrams that the Browser draws afresh whenever they are
 opened. To make many at once ("a diagram for each business service with
 Status XY"), write a recipe script: check_recipe_script says what it would
 make, or its errors by line, without changing anything. Fix the errors and
-check again; show the user the result before running it.
+check again; show the user the result before running it. Every run keeps the
+script with the model: recipe_scripts lists them and gives their text. get_view
+gives a recipe as the script of one diagram, to read or change it.
 """
 
 READ_ONLY_NOTE = """
@@ -87,6 +89,9 @@ from it; its changes are made in Archi, so do not try to write to it (its
 created views are the exception: update_view and delete_view work there).
 run_recipe_script makes and updates the recipes of a script you checked with
 check_recipe_script and the user agreed to; it works on a linked model too.
+save_recipe_script writes the changed script of one recipe into it (check it
+with check_recipe_script and view=… first); a recipe made by a script is changed
+in that script instead.
 """
 
 

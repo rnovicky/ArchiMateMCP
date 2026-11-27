@@ -9,6 +9,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from app.api_client import ApiError
 from app.links import model_token
 from app.lookup import props
 from app.tools import READ_ONLY, Context, Limit, ModelRef, Ref, compact, element_summary, page, short
@@ -171,6 +172,20 @@ async def _describe_recipe(ctx: Context, m: dict, v: dict) -> dict[str, Any]:
     }
     if ctx.links:
         answer["browserLink"] = ctx.links.base + "#model=" + quote(model_token(m, await ctx.lookup.models()), safe="-*@:~.") + "&" + v["recipe"]
+    # 1.16.0 (API 3.25.0): the recipe as the script of one diagram, to read and change it in the script language
+    try:
+        as_script = await ctx.api.get(f"/models/{m['id']}/views/{v['id']}/recipe-script")
+    except ApiError:
+        return answer  # an older API
+    answer["script"] = as_script.get("script")
+    if as_script.get("gaps"):
+        answer["scriptGaps"] = as_script["gaps"]
+    if as_script.get("madeBy"):
+        answer["madeBy"] = as_script["madeBy"]
+        answer["note"] += (f" Made by the recipe script \"{as_script['madeBy']['script']}\": change it there "
+                           "(recipe_scripts gives its text), since its next run sets this recipe back.")
+    elif as_script.get("script"):
+        answer["note"] += " To change it: edit `script`, check it with check_recipe_script (view=…), save it with save_recipe_script."
     return answer
 
 

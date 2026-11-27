@@ -140,3 +140,48 @@ async def test_neighbourhood_with_relationship_types_per_direction(call):
     message = await call.fails("neighbourhood", model=SYNTHETIC, elements=["ERP"], direction="out",
                                incoming_types=["Serving"])
     assert "incoming_types needs direction both or in" in message
+
+
+# ================================================================ 1.16.0 (API 3.25.0): kept scripts, a recipe as a script
+
+async def test_a_run_keeps_the_script(call, model):
+    ran = await call("run_recipe_script", model=model["name"], script=SCRIPT)
+    assert ran["storedScriptId"]
+    listed = await call("recipe_scripts", model=model["name"])
+    assert [(x["name"], x["recipes"], x["stored"]) for x in listed["scripts"]] == [("Owners", 2, True)]
+    one = await call("recipe_scripts", model=model["name"], name="owners")
+    assert one["text"] == SCRIPT
+    assert "no recipe script" in await call.fails("recipe_scripts", model=model["name"], name="Nope")
+
+
+async def test_a_recipe_as_a_script(call, model, api):
+    view_id = _admin(api, "POST", f"/models/{model['id']}/views", {"name": "ERP around", "recipe": "d=nb~1~app-erp&n=0"})["id"]
+    view = await call("get_view", model=model["name"], view=view_id)
+    assert view["script"] == 'diagram "ERP around"\n  neighbourhood of "ERP" depth 1\n'
+    assert "save_recipe_script" in view["note"]
+    same = await call("check_recipe_script", model=model["name"], view=view_id, script=view["script"])
+    assert same["ok"] and same["changes"] == [] and "nothing to save" in same["next"]
+    wider = view["script"].replace("depth 1", "depth 2")
+    checked = await call("check_recipe_script", model=model["name"], view=view_id, script=wider)
+    assert checked["changes"] == ["recipe"] and "ask before saving" in checked["next"]
+    saved = await call("save_recipe_script", model=model["name"], view=view_id, script=wider,
+                       expected_version=view["version"])
+    assert saved["changed"] is True and saved["recipe"]["recipe"] == "d=nb~2~app-erp&n=0"
+    assert "save_recipe_script" in call.log.read_text(encoding="utf-8")
+    bad = await call("save_recipe_script", model=model["name"], view=view_id, script='diagram "x"\n  neighbourhod\n')
+    assert bad["ok"] is False and bad["errors"][0]["line"] == 2
+
+
+async def test_a_recipe_made_by_a_script_points_to_it(call, model):
+    ran = await call("run_recipe_script", model=model["name"], script=SCRIPT)
+    view_id = ran["recipes"]["items"][0]["viewId"]
+    view = await call("get_view", model=model["name"], view=view_id)
+    assert view["madeBy"]["script"] == "Owners" and view["madeBy"]["line"] == 3
+    checked = await call("check_recipe_script", model=model["name"], view=view_id, script=view["script"])
+    assert "change that script instead" in checked["next"]
+    refused = await call.fails("save_recipe_script", model=model["name"], view=view_id,
+                               script=view["script"].replace("depth 1", "depth 2"))
+    assert "detach=true" in refused
+    detached = await call("save_recipe_script", model=model["name"], view=view_id,
+                          script=view["script"].replace("depth 1", "depth 2"), detach=True)
+    assert detached["detached"] is True
