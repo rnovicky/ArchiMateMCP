@@ -257,6 +257,7 @@ reader key it says so at start and offers none of them (decision D11).
 | `run_recipe_script` | Makes and updates the recipes of a recipe script, in one change, after `check_recipe_script` and the user's yes; `delete_obsolete` also deletes those the script no longer makes. Running it again updates its own recipes. A script with errors changes nothing and is answered like a check (1.15.0, API 3.24.0) |
 | `save_recipe_script` | Saves the changed script of one recipe into it (name, documentation, what it draws), after `check_recipe_script` with `view` and the user's yes. A recipe made by a script is refused unless `detach` (1.16.0, API 3.25.0) |
 | `keep_recipe_script` | Keeps a recipe script without running it: as a live template (default; no views, its diagrams worked out whenever asked for) or to run later (1.17.0, API 3.26.0) |
+| `delete_script_recipes` | Deletes all the recipes a recipe script made, e.g. after a wrong run; `forget` also forgets its kept text (1.18.0, API 3.28.0) |
 | `apply_changes` | Many of the changes above in one call and **one transaction**: all of them, or none, folders included (1.6.0). Later changes name items and folders created by earlier ones as `@ref` |
 | `create_model` | A new, empty model, by default with Archi's top-level folders. Only with a key that may create models (role `admin`) |
 | `update_model` | Changes the model's name, documentation or version label. Only with a key that may change models (role `admin`) |

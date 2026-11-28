@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.18.0 (2026-11-28)
+
+* **`delete_script_recipes`** (a write tool, API 3.28.0): deletes all the
+  recipes a recipe script made, e.g. after running a wrong script; a recipe
+  detached from the script stays, and the kept text too unless `forget`.
+
 ## 1.17.1 (2026-11-28)
 
 * The language in short (in `check_recipe_script`'s description) names the

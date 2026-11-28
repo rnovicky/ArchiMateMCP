@@ -94,6 +94,8 @@ with check_recipe_script and view=… first); a recipe made by a script is chang
 in that script instead.
 keep_recipe_script keeps a checked script as a live template: it makes no views,
 and the Browser lists its diagrams as the model is whenever it is opened.
+delete_script_recipes deletes all the recipes a script made (after a wrong run,
+say); ask the user first, naming the script and how many diagrams go.
 """
 
 

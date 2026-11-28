@@ -21,6 +21,10 @@ whenever they are asked for; no views).
 
 images.py's recipe_images saves an image of each diagram of a script, a kept script or chosen recipes.
 
+1.18.0 (API 3.28.0):
+
+  delete_script_recipes deletes all the recipes a script made, e.g. after a wrong run (a write tool)
+
 The API reads the script (POST …/recipe-scripts/check and …/run); the language is its RECIPE_SCRIPTS.md. The
 answers are shaped for the assistant: every error with its line, each recipe with its status (new, changed,
 unchanged) and, with BROWSER_URL, a link that opens it in the ArchiMate Browser (diagram_image draws such a link).
@@ -43,6 +47,7 @@ from app.tools import READ_ONLY, Context, Limit, ModelRef, Ref, compact, page
 SCRIPTS_NEED = "3.24.0"
 EDIT_NEED = "3.25.0"
 LIVE_NEED = "3.26.0"
+DELETE_RECIPES_NEED = "3.28.0"
 LANGUAGE = "https://github.com/rnovicky/ArchiMateAPI/blob/main/RECIPE_SCRIPTS.md"
 # Makes and updates recipes (created views); with delete_obsolete it also deletes some
 RUN = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False)
@@ -50,6 +55,8 @@ RUN = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hi
 SAVE = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False)
 # Keeps (or replaces) a script's text (1.17.0)
 KEEP = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
+# Deletes a script's recipes (1.18.0)
+DELETE_RECIPES = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False)
 
 Script = Annotated[str, Field(description="The text of the script (see the tool's description).", max_length=100_000)]
 
@@ -382,3 +389,29 @@ def register(server: MCPServer, ctx: Context) -> None:
                 **{k: kept.get(k) for k in ("id", "name", "live", "diagrams", "warnings") if kept.get(k) not in (None, [])},
                 "next": ("Tell the user: the live template is under Views in the ArchiMate Browser's model tree."
                          if kept.get("live") else "Kept; run it with run_recipe_script when the user wants its recipes.")}
+
+    @server.tool(annotations=DELETE_RECIPES)
+    @compact
+    async def delete_script_recipes(
+        name: Annotated[str, Field(description="The script's name, as on its `script` line (recipe_scripts lists them)",
+                                   min_length=1, max_length=400)],
+        model: ModelRef = None,
+        forget: Annotated[bool, Field(description="Also forget the script's kept text")] = False,
+    ) -> dict[str, Any]:
+        """Delete all the recipes (created views) a recipe script made, e.g. after running a wrong script (API 3.28.0).
+        A recipe detached from the script stays. It cannot be undone: tell the user how many diagrams of which script go
+        (recipe_scripts gives the count) and ask first. The script's kept text stays unless forget=true, so a corrected
+        script can be run again with run_recipe_script."""
+        m = await lookup.model(model)
+        try:
+            done = await api.post(f"/models/{m['id']}/recipe-scripts/delete-recipes", {"script": name, "forget": forget})
+        except ApiError as e:
+            if e.status == 404 and "no recipe script" in str(e).lower():
+                raise ToolError(f"{e} recipe_scripts lists the scripts of the model.") from e
+            raise (needs_newer(e, DELETE_RECIPES_NEED, "Deleting a script's recipes") or e) from e
+        deleted = done.get("deleted") or []
+        changes.record(ctx.settings, ctx.key_name, "delete_script_recipes", m, {"kind": "script", "name": name},
+                       {"deleted": len(deleted), "forgotten": done.get("forgotten")})
+        return {"model": {"id": m["id"], "name": m["name"]}, "script": name, "deletedCount": len(deleted),
+                "deleted": deleted[:50], **({"truncated": True} if len(deleted) > 50 else {}),
+                "forgotten": bool(done.get("forgotten")), "revision": done.get("revision")}

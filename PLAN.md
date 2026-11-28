@@ -10,7 +10,7 @@ the database or the exchange files itself. When it needs something the API
 cannot answer well, the API is extended (a BL item in the API's
 `IMPROVEMENTS.md`), not worked around here.
 
-* **Status as of 2026-11-28: 1.17.1** (the placeholders `{id}` and `{xmi}`); 1.17.0: recipe scripts (1.15.0), a recipe as a script and kept scripts
+* **Status as of 2026-11-28: 1.18.0** (`delete_script_recipes`); 1.17.1 (the placeholders `{id}` and `{xmi}`); 1.17.0: recipe scripts (1.15.0), a recipe as a script and kept scripts
   (1.16.0), live templates and `recipe_images` (1.17.0). What is open is listed in
   [Open ideas and tasks](#open-ideas-and-tasks-as-of-2026-11-28).
 * **Status as of 2026-11-20: 1.14.0**: `update_view` and `delete_view` also for views of the model's source on a
@@ -74,7 +74,7 @@ entry when it is done or dropped.
 * **Waiting for your decision:** MCP-16 (model tools: import, export, a dry
   run, refreshing a linked model) and MCP-29 (`delete_model`, the metadata
   blocks, the Browser's helper endpoints), parked since 2026-10-25.
-* **Recipe scripts:** no tool forgets a kept script's text (API PLAN.md R4).
+* **Recipe scripts:** 1.18.0 `delete_script_recipes` with `forget=true` forgets a kept text (API PLAN.md R4 is done for the MCP).
   `recipe_images` writes images and an `index.md`; a Word or PDF report from
   them is left to Claude, or to the reporting tool (API PLAN.md X1).
 * **Real-use tests still to do** ([REAL_USE_TESTS.md](REAL_USE_TESTS.md),

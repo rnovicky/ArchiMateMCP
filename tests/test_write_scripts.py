@@ -204,3 +204,19 @@ async def test_keep_a_live_template(call, model):
     await call("run_recipe_script", model=model["name"], script=SCRIPT)
     clash = await call.fails("keep_recipe_script", model=model["name"], script=SCRIPT)
     assert "made 2 recipe" in clash
+
+
+# ================================================================ 1.18.0 (API 3.28.0): a script's recipes deleted
+
+async def test_delete_the_recipes_of_a_script(call, model):
+    await call("run_recipe_script", model=model["name"], script=SCRIPT)
+    done = await call("delete_script_recipes", model=model["name"], name="Owners")
+    assert done["deletedCount"] == 2 and done["forgotten"] is False
+    assert sorted(d["name"] for d in done["deleted"]) == ["App: Billing", "App: ERP"]
+    assert "delete_script_recipes" in call.log.read_text(encoding="utf-8")
+    listed = await call("recipe_scripts", model=model["name"])
+    assert [(x["name"], x["recipes"]) for x in listed["scripts"]] == [("Owners", 0)]
+    gone = await call("delete_script_recipes", model=model["name"], name="Owners", forget=True)
+    assert gone["deletedCount"] == 0 and gone["forgotten"] is True
+    missing = await call.fails("delete_script_recipes", model=model["name"], name="Owners")
+    assert "recipe_scripts lists" in missing
