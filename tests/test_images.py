@@ -161,3 +161,55 @@ async def test_a_recipe_is_drawn_as_its_diagram(client, api):
         assert "elements" in a.get("info", "")
     finally:
         api.call("DELETE", f"/api/v2/models/{mid}/views/{v['id']}")
+
+
+# ---------------------------------------------------------------- 1.17.0 recipe_images
+
+SHOTS = """script "Shots"
+for each ApplicationComponent where @Owner = "Finance"
+  diagram "Around {name}"
+    neighbourhood depth 1
+    documentation "Made for {name}"
+"""
+
+
+@pytest.mark.anyio
+async def test_images_of_every_diagram_of_a_script(client, tmp_path):
+    result = await client.call_tool("recipe_images", {"model": SYNTHETIC, "script": SHOTS, "format": "svg"})
+    if result.is_error and "No browser to draw in" in result.content[0].text:
+        pytest.skip(result.content[0].text)
+    assert not result.is_error, result.content[0].text
+    a = result.structured_content
+    assert Path(a["folder"]) == tmp_path / "Shots"
+    assert [i["name"] for i in a["images"]] == ["Around ERP", "Around ERP Billing", "Around Kafka"]
+    first = Path(a["images"][0]["files"][0])
+    assert first == tmp_path / "Shots" / "Around_ERP.svg" and "ERP" in first.read_text(encoding="utf-8")
+    index = Path(a["index"]).read_text(encoding="utf-8")
+    assert index.startswith("# Shots") and "## Around Kafka" in index and "Made for Kafka" in index
+    assert "![Around ERP](Around_ERP.svg)" in index
+
+
+@pytest.mark.anyio
+async def test_images_of_a_live_template_and_of_recipes(client, api, tmp_path):
+    mid = api.models["synthetic"]
+    kept = api.call("POST", f"/api/v2/models/{mid}/recipe-scripts", data=json.dumps(
+        {"script": SHOTS.replace('"Shots"', '"Live shots"'), "live": True}).encode(), content_type="application/json")
+    v = api.call("POST", f"/api/v2/models/{mid}/views", data=json.dumps(
+        {"name": "A recipe", "recipe": "d=ty~ApplicationComponent"}).encode(), content_type="application/json")
+    try:
+        result = await client.call_tool("recipe_images", {"model": SYNTHETIC, "name": "live shots", "folder": "live",
+                                                           "index": False})
+        if result.is_error and "No browser to draw in" in result.content[0].text:
+            pytest.skip(result.content[0].text)
+        a = result.structured_content
+        assert len(a["images"]) == 3 and "index" not in a and Path(a["folder"]) == tmp_path / "live"
+        assert Path(a["images"][0]["files"][0]).read_bytes()[:8] == PNG
+        one = (await client.call_tool("recipe_images", {"model": SYNTHETIC, "views": [v["id"]], "format": "svg"})).structured_content
+        assert [i["name"] for i in one["images"]] == ["A recipe"]
+        refused = await client.call_tool("recipe_images", {"model": SYNTHETIC, "name": "no such"})
+        assert refused.is_error and "no kept recipe script" in refused.content[0].text
+        both = await client.call_tool("recipe_images", {"model": SYNTHETIC, "name": "x", "views": [1]})
+        assert both.is_error and "exactly one" in both.content[0].text
+    finally:
+        api.call("DELETE", f"/api/v2/models/{mid}/views/{v['id']}")
+        api.call("DELETE", f"/api/v2/models/{mid}/recipe-scripts/{kept['id']}")

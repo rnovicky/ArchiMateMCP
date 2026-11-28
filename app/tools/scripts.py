@@ -13,6 +13,14 @@ of one diagram.
 
 get_view gives a recipe's script (views.py).
 
+1.17.0 (API 3.26.0): a script kept without running it, as a live template (its diagrams worked out from the model
+whenever they are asked for; no views).
+
+  keep_recipe_script    keeps a script as a live template, or to run later (a write tool)
+  recipe_scripts        also says which are live, and gives a live template's diagrams as they are now
+
+images.py's recipe_images saves an image of each diagram of a script, a kept script or chosen recipes.
+
 The API reads the script (POST …/recipe-scripts/check and …/run); the language is its RECIPE_SCRIPTS.md. The
 answers are shaped for the assistant: every error with its line, each recipe with its status (new, changed,
 unchanged) and, with BROWSER_URL, a link that opens it in the ArchiMate Browser (diagram_image draws such a link).
@@ -34,11 +42,14 @@ from app.tools import READ_ONLY, Context, Limit, ModelRef, Ref, compact, page
 
 SCRIPTS_NEED = "3.24.0"
 EDIT_NEED = "3.25.0"
+LIVE_NEED = "3.26.0"
 LANGUAGE = "https://github.com/rnovicky/ArchiMateAPI/blob/main/RECIPE_SCRIPTS.md"
 # Makes and updates recipes (created views); with delete_obsolete it also deletes some
 RUN = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False)
 # Rewrites one recipe (1.16.0)
 SAVE = ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False)
+# Keeps (or replaces) a script's text (1.17.0)
+KEEP = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 
 Script = Annotated[str, Field(description="The text of the script (see the tool's description).", max_length=100_000)]
 
@@ -228,9 +239,11 @@ def register(server: MCPServer, ctx: Context) -> None:
             "A script's name (or id): its text as last run. Left out: the list of the model's scripts."))] = None,
     ) -> dict[str, Any]:
         """The recipe scripts of a model (API 3.25.0): every run keeps the script's text with the model. Without
-        `name`, the list: each script's name, how many recipes it made, and whether its text is kept (a script last
-        run before API 3.25.0 has recipes but no text). With `name`, the text of one, to change it and check and run
-        it again (check_recipe_script, run_recipe_script)."""
+        `name`, the list: each script's name, how many recipes it made, whether its text is kept (a script last run
+        before API 3.25.0 has recipes but no text) and whether it is a live template (API 3.26.0: it makes no
+        views; its diagrams are worked out from the model whenever asked for). With `name`, the text of one, to
+        change it and check and run it again (check_recipe_script, run_recipe_script); for a live template also its
+        diagrams as the model is now, each with a link (recipe_images saves their images)."""
         m = await lookup.model(model)
         try:
             listed = await api.get(f"/models/{m['id']}/recipe-scripts")
@@ -238,8 +251,8 @@ def register(server: MCPServer, ctx: Context) -> None:
             raise (edit_newer(e) or e) from e
         if name is None:
             return {"model": {"id": m["id"], "name": m["name"]},
-                    "scripts": [{k: x.get(k) for k in ("id", "name", "recipes", "stored", "updatedBy", "updatedAt")}
-                                for x in listed]}
+                    "scripts": [{k: x.get(k) for k in ("id", "name", "recipes", "stored", "live", "updatedBy",
+                                                       "updatedAt") if k in x} for x in listed]}
         wanted = str(name).strip()
         found = [x for x in listed if x["name"] == wanted] or [x for x in listed if x["name"].casefold() == wanted.casefold()] \
             or [x for x in listed if str(x.get("id")) == wanted]
@@ -251,8 +264,20 @@ def register(server: MCPServer, ctx: Context) -> None:
             raise ToolError(f"The text of the recipe script \"{x['name']}\" is not kept (it last ran before ArchiMate API "
                             f"3.25.0); its {x['recipes']} recipe(s) are there. Ask the user for the script, or write it anew.")
         script = await api.get(f"/models/{m['id']}/recipe-scripts/{x['id']}")
-        return {"model": {"id": m["id"], "name": m["name"]},
-                **{k: script.get(k) for k in ("id", "name", "recipes", "updatedBy", "updatedAt", "text")}}
+        answer = {"model": {"id": m["id"], "name": m["name"]},
+                  **{k: script.get(k) for k in ("id", "name", "recipes", "live", "updatedBy", "updatedAt", "text") if k in script}}
+        if script.get("live"):
+            expanded = await api.get(f"/models/{m['id']}/recipe-scripts/{x['id']}/recipes")
+            if expanded.get("errors"):
+                answer["errors"] = expanded["errors"]
+                answer["next"] = "The model no longer fits the template: fix the script and keep it again."
+            token = model_token(m, await lookup.models()) if ctx.links else None
+            answer["diagrams"] = [{"name": r["name"], "recipe": r["recipe"],
+                                   **({"for": {"type": r["element"]["type"], "name": r["element"].get("name")}}
+                                      if r.get("element") else {}),
+                                   **({"browserLink": ctx.links.recipe_url(token, r["recipe"])} if token else {})}
+                                  for r in expanded.get("recipes", [])]
+        return answer
 
     if not ctx.writable:
         return
@@ -326,3 +351,34 @@ def register(server: MCPServer, ctx: Context) -> None:
                            {"kind": "view", "id": v["id"], "name": v.get("name")},
                            {"changes": report.get("changes"), "detached": report.get("detached")})
         return one_recipe(m, v, report, script_of)
+
+    @server.tool(annotations=KEEP)
+    @compact
+    async def keep_recipe_script(
+        script: Script,
+        model: ModelRef = None,
+        live: Annotated[bool, Field(description=(
+            "true (default): a live template, which makes no views; the ArchiMate Browser lists its diagrams in the "
+            "model tree, worked out from the model whenever it is opened. false: kept to run later."))] = True,
+    ) -> dict[str, Any]:
+        """Keep a recipe script with the model without running it (API 3.26.0): as a live template, or to run later
+        with run_recipe_script. Check it first (check_recipe_script) and ask the user. A live template is always up to
+        date: new elements that match appear, without a run. It may not share its name with a script that made
+        recipes. Running a kept script makes its recipes and ends it being live."""
+        m = await lookup.model(model)
+        try:
+            kept = await api.post(f"/models/{m['id']}/recipe-scripts", {"script": script, "live": live})
+        except ApiError as e:
+            err = e.body if isinstance(e.body, dict) else {}
+            if err.get("code") == "SCRIPT_ERRORS" and isinstance(err.get("details"), dict):
+                return {"model": {"id": m["id"], "name": m["name"]}, "ok": False, "errors": err["details"].get("errors"),
+                        "next": "Fix the errors (each names its line) and keep it again; nothing was kept."}
+            if err.get("code") == "SCRIPT_HAS_RECIPES":
+                raise ToolError(f"{e} Nothing was kept.") from e
+            raise (needs_newer(e, LIVE_NEED, "Live templates") or e) from e
+        changes.record(ctx.settings, ctx.key_name, "keep_recipe_script", m, {"kind": "script", "name": kept.get("name")},
+                       {"live": kept.get("live"), "diagrams": kept.get("diagrams")})
+        return {"model": {"id": m["id"], "name": m["name"]}, "ok": True,
+                **{k: kept.get(k) for k in ("id", "name", "live", "diagrams", "warnings") if kept.get(k) not in (None, [])},
+                "next": ("Tell the user: the live template is under Views in the ArchiMate Browser's model tree."
+                         if kept.get("live") else "Kept; run it with run_recipe_script when the user wants its recipes.")}

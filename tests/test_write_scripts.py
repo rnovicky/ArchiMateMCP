@@ -185,3 +185,22 @@ async def test_a_recipe_made_by_a_script_points_to_it(call, model):
     detached = await call("save_recipe_script", model=model["name"], view=view_id,
                           script=view["script"].replace("depth 1", "depth 2"), detach=True)
     assert detached["detached"] is True
+
+
+# ================================================================ 1.17.0 (API 3.26.0): live templates
+
+async def test_keep_a_live_template(call, model):
+    live = SCRIPT.replace('"Owners"', '"Live owners"')
+    kept = await call("keep_recipe_script", model=model["name"], script=live)
+    assert kept["ok"] and kept["live"] is True and kept["diagrams"] == 2 and "model tree" in kept["next"]
+    assert "keep_recipe_script" in call.log.read_text(encoding="utf-8")
+    listed = await call("recipe_scripts", model=model["name"])
+    assert [(x["name"], x["live"], x["recipes"]) for x in listed["scripts"]] == [("Live owners", True, 0)]
+    one = await call("recipe_scripts", model=model["name"], name="Live owners")
+    assert one["live"] is True and [d["name"] for d in one["diagrams"]] == ["App: Billing", "App: ERP"]
+    assert one["diagrams"][1]["browserLink"].startswith(BROWSER)
+    bad = await call("keep_recipe_script", model=model["name"], script='script "x"\ndiagram "D"\n  neighbourhod\n')
+    assert bad["ok"] is False and bad["errors"][0]["line"] == 3
+    await call("run_recipe_script", model=model["name"], script=SCRIPT)
+    clash = await call.fails("keep_recipe_script", model=model["name"], script=SCRIPT)
+    assert "made 2 recipe" in clash

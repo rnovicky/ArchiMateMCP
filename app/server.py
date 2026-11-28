@@ -92,6 +92,8 @@ check_recipe_script and the user agreed to; it works on a linked model too.
 save_recipe_script writes the changed script of one recipe into it (check it
 with check_recipe_script and view=… first); a recipe made by a script is changed
 in that script instead.
+keep_recipe_script keeps a checked script as a live template: it makes no views,
+and the Browser lists its diagrams as the model is whenever it is opened.
 """
 
 

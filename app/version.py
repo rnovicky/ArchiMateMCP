@@ -1,4 +1,4 @@
-APP_VERSION = "1.16.0"
+APP_VERSION = "1.17.0"
 
 # The oldest ArchiMate API this server works with; checked against /health at start.
 MIN_API_VERSION = "3.12.0"

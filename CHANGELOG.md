@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.17.0 (2026-11-28)
+
+For the ArchiMate API 3.26.0 (live templates); `recipe_images` works with API 3.24.0.
+
+* **`recipe_images`** saves an image of each diagram of a recipe script into
+  one folder, drawn as the Browser draws it: from the script's text (it need
+  not have run), a kept script or live template (`name`), or chosen recipes
+  (`views`). With `index` (default) it also writes `index.md` with each
+  diagram's name, documentation and image, ready for a report. At most 100
+  images at once.
+* **`keep_recipe_script`** (writing on) keeps a script without running it: as
+  a live template (default), which makes no views and whose diagrams the
+  Browser works out whenever it is opened, or to run later.
+* **`recipe_scripts`** says which scripts are live, and for a live template
+  gives its diagrams as the model is now, each with a `browserLink`.
+
 ## 1.16.0 (2026-11-27)
 
 For the ArchiMate API 3.25.0; the rest works with the API as before.

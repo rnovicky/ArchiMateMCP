@@ -1,4 +1,9 @@
-"""MCP-35 (1.12.0) diagram_image: a diagram as an SVG or PNG file, drawn by the ArchiMate Browser (app/render.py)."""
+"""
+MCP-35 (1.12.0) diagram_image: a diagram as an SVG or PNG file, drawn by the ArchiMate Browser (app/render.py).
+
+1.17.0 recipe_images: an image of each diagram of a recipe script (its text, a kept or live script, or chosen
+recipes), into one folder, with an index for a report.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +13,7 @@ import json
 import re
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import quote
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -15,6 +21,7 @@ from mcp_types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 from pydantic import Field
 
 from app.config import Settings
+from app.api_client import ApiError
 from app.links import BrowserLinks, model_token
 from app.render import Renderer, RenderError
 from app.tools import Context, ModelRef, Ref
@@ -27,6 +34,9 @@ _LINKS = BrowserLinks("http://render.invalid/")
 
 # The nesting of generated diagrams as the Browser's links carry it (n=, js/app/diagram.js nestingMode)
 NESTING = {"none": "0", "composition": "1", "assignment": "2"}
+
+# The most images recipe_images draws in one call
+IMAGES_MAX = 100
 
 # One renderer for the whole process (with CLIENT_KEYS every client has a server of its own; they share it)
 _renderer: Renderer | None = None
@@ -162,3 +172,116 @@ def register(server: MCPServer, ctx: Context) -> None:
         if image.preview is not None:
             content.append(ImageContent(type="image", data=base64.b64encode(image.preview).decode(), mime_type="image/png"))
         return CallToolResult(content=content, structured_content=answer)
+
+    @server.tool(annotations=WRITES_FILES)
+    async def recipe_images(
+        model: ModelRef = None,
+        script: Annotated[str | None, Field(description=(
+            "The text of a recipe script: an image of each diagram it makes (it need not have run)."), max_length=100_000)] = None,
+        name: Annotated[Ref | None, Field(description=(
+            "A kept recipe script or live template (recipe_scripts lists them): an image of each diagram it makes "
+            "from the model as it is now."))] = None,
+        views: Annotated[list[Ref] | None, Field(description="Recipes (views that are recipes): an image of each.")] = None,
+        format: Annotated[Literal["png", "svg", "both"], Field(description="png (default), svg, or both.")] = "png",
+        folder: Annotated[str | None, Field(description=(
+            "Folder inside the server's image folder (IMAGE_DIR) for the files; default: the script's name, or "
+            "\"recipes\". Files of the same name are replaced."))] = None,
+        index: Annotated[bool, Field(description=(
+            "Also write index.md: each diagram's name, documentation and image, ready to go into a report."))] = True,
+        direction: Annotated[Literal["TB", "LR"], Field(description="Top to bottom (TB, default) or left to right.")] = "TB",
+        scale: Annotated[float, Field(description="PNG pixels per diagram unit: 2 (default) is sharp in print.",
+                                      ge=0.5, le=4)] = 2,
+    ) -> dict[str, Any]:
+        """Save an image of each diagram of a recipe script, drawn as the ArchiMate Browser draws it, into one
+        folder: for a report with many diagrams ("the neighbourhood of every application with Status Live"). Give
+        exactly one of script (its text; check it with check_recipe_script first), name (a kept script or live
+        template) or views (recipes). At most 100 images at once. The answer lists the files; index.md lists them
+        with their names and documentation."""
+        if sum(x is not None for x in (script, name, views)) != 1:
+            raise ToolError("Give exactly one of script, name and views.")
+        m = await lookup.model(model)
+        api = ctx.api
+        items: list[dict[str, Any]] = []  # name, documentation, recipe
+        title = "recipes"
+        try:
+            if script is not None:
+                report = await api.post(f"/models/{m['id']}/recipe-scripts/check", {"script": script})
+                if report.get("errors"):
+                    raise ToolError("The script has errors (check_recipe_script lists them with their lines): "
+                                    + "; ".join(f"line {e['line']}: {e['message']}" for e in report["errors"][:5]))
+                items, title = report.get("recipes", []), report.get("script") or title
+            elif name is not None:
+                listed = await api.get(f"/models/{m['id']}/recipe-scripts")
+                wanted = str(name).strip()
+                found = [x for x in listed if x["name"] == wanted] or [x for x in listed if x["name"].casefold() == wanted.casefold()] \
+                    or [x for x in listed if str(x.get("id")) == wanted]
+                if not found or not found[0].get("stored"):
+                    raise ToolError(f"The model has no kept recipe script \"{wanted}\" (recipe_scripts lists them); for "
+                                    "the recipes of a script whose text is not kept, give views.")
+                expanded = await api.get(f"/models/{m['id']}/recipe-scripts/{found[0]['id']}/recipes")
+                if expanded.get("errors"):
+                    raise ToolError("The model no longer fits the script: "
+                                    + "; ".join(f"line {e['line']}: {e['message']}" for e in expanded["errors"][:5]))
+                items, title = expanded.get("recipes", []), found[0]["name"]
+            else:
+                for ref in views or []:
+                    v = await lookup.view(m["id"], ref)
+                    if v.get("recipe") is None:
+                        raise ToolError(f"View \"{v.get('name')}\" is not a recipe; diagram_image draws a stored view.")
+                    items.append({"name": v["name"], "documentation": v.get("documentation"), "recipe": v["recipe"]})
+        except ApiError as e:
+            if e.status in (404, 405) and "recipe script" not in str(e).lower():
+                raise ToolError("Images of recipe scripts need ArchiMate API 3.24.0 (a kept script 3.26.0) or later.") from e
+            raise
+        if not items:
+            raise ToolError("Nothing to draw: the script makes no diagram now.")
+        if len(items) > IMAGES_MAX:
+            raise ToolError(f"{len(items)} diagrams; at most {IMAGES_MAX} images at once. Narrow the script (max, where).")
+
+        root = target(ctx.settings, folder, title)
+        root.mkdir(parents=True, exist_ok=True)
+        token = quote(model_token(m, await lookup.models()), safe="-*@:~.")
+        formats = ("svg", "png") if format == "both" else (format,)
+        used: set[str] = set()
+        done: list[dict[str, Any]] = []
+        failed: list[dict[str, str]] = []
+        for item in items:
+            base = safe_name(item["name"])
+            stem, n = base, 2
+            while stem.lower() in used:
+                stem, n = f"{base}_{n}", n + 1
+            used.add(stem.lower())
+            try:
+                image = await renderer(ctx.settings).render(f"model={token}&{item['recipe']}", ctx.settings.api_key,
+                                                            formats=formats, direction=direction, png_scale=scale,
+                                                            preview=False)
+            except RenderError as e:
+                failed.append({"name": item["name"], "error": str(e)})
+                continue
+            files = []
+            if image.svg is not None:
+                path = root / f"{stem}.svg"
+                path.write_text(image.svg, encoding="utf-8")
+                files.append(str(path))
+            if image.png is not None:
+                path = root / f"{stem}.png"
+                path.write_bytes(image.png)
+                files.append(str(path))
+            done.append({"name": item["name"], "files": files, "documentation": item.get("documentation"),
+                         "stem": stem, **({"notes": image.notes} if image.notes else {})})
+        answer: dict[str, Any] = {"model": {"id": m["id"], "name": m["name"]}, "folder": str(root),
+                                  "images": [{k: v for k, v in d.items() if k not in ("stem", "documentation")} for d in done]}
+        if failed:
+            answer["failed"] = failed
+        if index and done:
+            ext = "png" if "png" in formats else "svg"
+            lines = [f"# {title}", ""]
+            for d in done:
+                lines += [f"## {d['name']}", ""]
+                if d.get("documentation"):
+                    lines += [d["documentation"], ""]
+                lines += [f"![{d['name']}]({quote(d['stem'])}.{ext})", ""]
+            path = root / "index.md"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            answer["index"] = str(path)
+        return answer

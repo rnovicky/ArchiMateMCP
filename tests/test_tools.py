@@ -55,7 +55,7 @@ async def test_the_tools_and_their_hints(call):
     assert {"api_status", "list_models", "model_overview", "search", "get_element", "get_relationship",
             "list_views", "get_view", "browse_folders"} <= set(tools)
     assert all(not t.annotations.destructive_hint for t in tools.values())
-    assert all(t.annotations.read_only_hint for n, t in tools.items() if n != "diagram_image")  # it writes image files
+    assert all(t.annotations.read_only_hint for n, t in tools.items() if n not in ("diagram_image", "recipe_images"))  # it writes image files
     assert all(t.description for t in tools.values())
 
 

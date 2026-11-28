@@ -10,6 +10,9 @@ the database or the exchange files itself. When it needs something the API
 cannot answer well, the API is extended (a BL item in the API's
 `IMPROVEMENTS.md`), not worked around here.
 
+* **Status as of 2026-11-28: 1.17.0**: recipe scripts (1.15.0), a recipe as a script and kept scripts
+  (1.16.0), live templates and `recipe_images` (1.17.0). What is open is listed in
+  [Open ideas and tasks](#open-ideas-and-tasks-as-of-2026-11-28).
 * **Status as of 2026-11-20: 1.14.0**: `update_view` and `delete_view` also for views of the model's source on a
   model mastered here (API 3.23.0).
 * **Status as of 2026-11-20: 1.13.0**: recipes (API 3.22.0, Browser 2.30.0): `list_views` and `get_view`
@@ -60,6 +63,24 @@ cannot answer well, the API is extended (a BL item in the API's
 * **API it is built on:** 3.7.0 or newer (since 1.2.0), `/api/v2` only.
 * **SDK:** the MCP Python SDK 2.3 (`mcp`); its server class is `MCPServer`,
   FastMCP of the 1.x SDK.
+
+## Open ideas and tasks (as of 2026-11-28)
+
+What is unfinished or undecided for the MCP server. The shared ideas (the
+reporting tool, PostgreSQL, the multi-user epic, the recipe scripts' open
+items) are in the API's PLAN.md, section *Open ideas and tasks*. Remove an
+entry when it is done or dropped.
+
+* **Waiting for your decision:** MCP-16 (model tools: import, export, a dry
+  run, refreshing a linked model) and MCP-29 (`delete_model`, the metadata
+  blocks, the Browser's helper endpoints), parked since 2026-10-25.
+* **Recipe scripts:** no tool forgets a kept script's text (API PLAN.md R4).
+  `recipe_images` writes images and an `index.md`; a Word or PDF report from
+  them is left to Claude, or to the reporting tool (API PLAN.md X1).
+* **Real-use tests still to do** ([REAL_USE_TESTS.md](REAL_USE_TESTS.md),
+  `../todo.txt`): part B (B1 to B8), C13 and C14, parts D and E, A9 (a report
+  with diagram images), images of a large view, change notifications in a
+  client that subscribes, and sending the findings back.
 
 ## How to track progress
 

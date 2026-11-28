@@ -18,7 +18,7 @@ async def test_tools_are_listed_and_read_only(settings):
         tools = {t.name: t for t in (await c.list_tools()).tools}
         assert "api_status" in tools
         # diagram_image (1.12.0) writes image files, but changes no model
-        assert all(t.annotations and t.annotations.read_only_hint for n, t in tools.items() if n != "diagram_image")
+        assert all(t.annotations and t.annotations.read_only_hint for n, t in tools.items() if n not in ("diagram_image", "recipe_images"))
         assert not tools["diagram_image"].annotations.read_only_hint and not tools["diagram_image"].annotations.destructive_hint
         assert c.instructions and "ArchiMate" in c.instructions
 
