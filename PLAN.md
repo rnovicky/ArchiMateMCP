@@ -10,7 +10,7 @@ the database or the exchange files itself. When it needs something the API
 cannot answer well, the API is extended (a BL item in the API's
 `IMPROVEMENTS.md`), not worked around here.
 
-* **Status as of 2026-11-28: 1.17.0**: recipe scripts (1.15.0), a recipe as a script and kept scripts
+* **Status as of 2026-11-28: 1.17.1** (the placeholders `{id}` and `{xmi}`); 1.17.0: recipe scripts (1.15.0), a recipe as a script and kept scripts
   (1.16.0), live templates and `recipe_images` (1.17.0). What is open is listed in
   [Open ideas and tasks](#open-ideas-and-tasks-as-of-2026-11-28).
 * **Status as of 2026-11-20: 1.14.0**: `update_view` and `delete_view` also for views of the model's source on a

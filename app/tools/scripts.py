@@ -61,7 +61,7 @@ A script (the ArchiMate API's RECIPE_SCRIPTS.md has it all):
       layout readable
       hide Junction
     for each BusinessService where @Status = "XY"      # one diagram per element; at most 50 unless "max N"
-      diagram "Service: {name}"                        # {name} {type} {@Prop} {@Prop or 'n/a'}
+      diagram "Service: {name}"                        # {name} {type} {id} {xmi} {@Prop} {@Prop or 'n/a'}
         neighbourhood depth 1
           incoming all
           outgoing Serving, Realization

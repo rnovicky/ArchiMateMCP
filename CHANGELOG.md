@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.17.1 (2026-11-28)
+
+* The language in short (in `check_recipe_script`'s description) names the
+  placeholders `{id}` and `{xmi}` of API 3.27.0.
+
 ## 1.17.0 (2026-11-28)
 
 For the ArchiMate API 3.26.0 (live templates); `recipe_images` works with API 3.24.0.
